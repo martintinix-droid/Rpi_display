@@ -8,14 +8,16 @@ from aiohttp import web, WSMsgType
 mimetypes.add_type("application/wasm", ".wasm")
 
 PI_TOKEN = os.environ.get("PI_TOKEN", "")
+WEB_DIR = "web"
+
 viewers = set()
-last_message = None   # último dato, para mostrárselo enseguida a quien se conecte
+last_message = None   # último dato, para mostrarlo enseguida a quien se conecte
 
 
 async def pi_ws(request):
     token = request.query.get("token", "")
     if not PI_TOKEN or not hmac.compare_digest(token, PI_TOKEN):
-        return web.Response(status=401, text="Token inválido")
+        return web.Response(status=401, text="Token invalido")
 
     ws = web.WebSocketResponse(heartbeat=20)
     await ws.prepare(request)
@@ -50,14 +52,19 @@ async def view_ws(request):
 
 
 async def index(request):
-    return web.FileResponse("web/index.html")
+    path = os.path.join(WEB_DIR, "index.html")
+    if not os.path.exists(path):
+        return web.Response(text="Relay activo, pero aun no hay web exportada.")
+    return web.FileResponse(path)
 
+
+os.makedirs(WEB_DIR, exist_ok=True)   # evita que falle si aún no exportaste
 
 app = web.Application()
 app.router.add_get("/ws/pi", pi_ws)
 app.router.add_get("/ws/view", view_ws)
 app.router.add_get("/", index)
-app.router.add_static("/", "web")
+app.router.add_static("/", WEB_DIR)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
